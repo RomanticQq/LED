@@ -91,7 +91,7 @@ train_loader = torch.utils.data.DataLoader(
 )
 
 val_loader = torch.utils.data.DataLoader(
-    XunFeiDataset(train_path.values[-500:], train_label.values[-500:],
+    XunFeiDataset(train_path.values[:-1], train_label.values[:-1],
                   A.Compose([
                       # A.Resize(300, 300),
                       A.RandomCrop(130, 450),
@@ -109,7 +109,7 @@ test_loader = torch.utils.data.DataLoader(
                       # A.HorizontalFlip(p=0.5),
                       # A.RandomContrast(p=0.5),
                   ])
-                  ), batch_size=2, shuffle=False, num_workers=1, pin_memory=False
+                  ), batch_size=4, shuffle=False, num_workers=1, pin_memory=False
 )
 
 
@@ -133,16 +133,14 @@ def train(train_loader, model, criterion, optimizer):
             print(loss.item())
 
         train_loss += loss.item()
-    return train_loss/len(train_loader.dataset), model
+    torch.save(model, 'dir.pth')
+    return train_loss / len(train_loader.dataset), model
 
 
 def validate(val_loader, model, criterion):
     model.eval()
-
     val_acc = 0.0
-
     with torch.no_grad():
-        end = time.time()
         for i, (input, target) in enumerate(val_loader):
             input = input.cuda()
             target = target.cuda()
@@ -156,34 +154,36 @@ def validate(val_loader, model, criterion):
     return val_acc / len(val_loader.dataset)
 
 
-
-
 def aaa():
     model = XunFeiNet()
     model = model.to('cuda')
     criterion = nn.CrossEntropyLoss().cuda()
     optimizer = torch.optim.SGD(model.parameters(), 0.001)
-    loss = list()
-    acc = list()
-    for _ in range(2):
+
+    for _ in range(1):
         train_loss, model = train(train_loader, model, criterion, optimizer)
         val_acc = validate(val_loader, model, criterion)
-        loss.append(train_loss)
-        acc.append(val_acc)
-        print(train_loss, val_acc)
-    n = [i+1 for i in range(2)]
-    plt.plot(n, loss)
-    plt.figure(1)
-    plt.xlabel("n")
-    plt.ylabel("loss")
-    plt.savefig('./loss.png')
-    plt.plot(n, acc)
-    plt.figure(2)
-    plt.xlabel("n")
-    plt.ylabel("acc")
-    plt.savefig('/acc.png')
+
+def test_module():
+    path = 'dir.pth'
+    model = torch.load(path)
+    criterion = nn.CrossEntropyLoss().cuda()
+    val_acc = validate(val_loader, model, criterion)
+    print(val_acc)
+
+
+def test_script_module():
+    path = 'dir.pth'
+    path_1 = 'dir_1.pt'
+    script_moudle = torch.jit.script(torch.load(path))
+    torch.jit.save(script_moudle, path_1)
+    model = torch.jit.load(path_1)
+    criterion = nn.CrossEntropyLoss().cuda()
+    val_acc = validate(val_loader, model, criterion)
+    print(val_acc)
 
 
 if __name__ == '__main__':
     import fire
+
     fire.Fire()
